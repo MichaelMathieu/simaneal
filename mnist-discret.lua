@@ -9,9 +9,12 @@ cmd:option('-seed', 1, 'Manual seed')
 cmd:option('-nhid', 16, 'Number of hidden units')
 cmd:option('-teta', 30, "Temperature eta")
 cmd:option('-tgamma', 1, "Temperature gamma")
-cmd:option('-neta', 0.1, "Neighbour eta")
+cmd:option('-neta', 20, "Neighbour eta")
+cmd:option('-nchanges', 20, "Neighbour number of changes")
 cmd:option('-niter', 100000, "Number of iterations")
 cmd:option('-nsamples', 6000, "Number of samples")
+cmd:option('-wndisc', 100, "Number of different weights")
+cmd:option('-wrange', 10, "Range of weights")
 cmd:option('-jobname', 'job', 'Job name')
 opt = cmd:parse(arg)
 
@@ -25,6 +28,9 @@ local params = {
    temp_eta = tonumber(opt.teta),
    temp_gamma = tonumber(opt.tgamma),
    neighbour_eta = tonumber(opt.neta),
+   neighbour_n_changes = tonumber(opt.nchanges),
+   weight_n_disc = tonumber(opt.wndisc),
+   weight_range = tonumber(opt.wrange)
 }
 
 torch.manualSeed(params.seed)
@@ -79,18 +85,36 @@ local n_total = params.nSamples
 dataset.data   = dataset.data  [{{1, n_total}, {}}]
 dataset.labels = dataset.labels[{{1, n_total}}]
 
+local legal_weights = torch.Tensor(params.weight_n_disc)
+local w_step = params.weight_range * 2 / params.weight_n_disc
+for i = 1, params.weight_n_disc do
+   legal_weights[i] = - params.weight_range + w_step * i
+end
+
 local nSamples = dataset.labels:size(1)
 local batch_size = nSamples
 local w, dw = model:getParameters()
+for i = 1, w:size(1) do
+   w[i] = legal_weights[torch.random(legal_weights:size(1))]
+end
+local w_min = legal_weights[1]
+local w_max = legal_weights[legal_weights:size(1)]
 local initial_state = w
-local rnd = torch.Tensor(w:size())
+
 local function getNeighbour(p, i_step)
+   local a
    if i_step > params.nIter / 3 then
-      rnd:normal():mul(params.neighbour_eta/10)
+      a = params.neighbour_eta/10
    else
-      rnd:normal():mul(params.neighbour_eta)
+      a = params.neighbour_eta
    end
-   return p + rnd
+   local p2 = p:clone()
+   for i = 1, params.neighbour_n_changes do
+      local delta = math.round(torch.normal():mul(a)) / w_step
+      local k = torch.random(p2:size(1))
+      p2[k] = math.max(w_min, math.min(w_max, p2[k] + delta))
+   end
+   return p2
 end
 local perm = torch.randperm(nSamples)
 local input = torch.Tensor(batch_size, nInput)
@@ -98,14 +122,16 @@ local target = torch.Tensor(batch_size)
 local old_w = w:clone()
 
 local function energy(p, i_step, this_batch_size)
-   this_batch_size = this_batch_size or batch_size
    old_w:copy(w)
    w:copy(p)
+   print("ok")
    local output = model:forward(dataset.data)
+   print("done")
    local err = criterion:forward(output, dataset.labels)
    w:copy(old_w)
    return err
 end
+
 local function temperature(i_step)
    return params.temp_eta/(1+math.pow(i_step, params.temp_gamma))
 end
