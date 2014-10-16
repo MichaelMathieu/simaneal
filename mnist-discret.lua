@@ -6,7 +6,7 @@ require 'io'
 
 cmd = torch.CmdLine()
 cmd:option('-seed', 1, 'Manual seed')
-cmd:option('-nhid', 16, 'Number of hidden units')
+cmd:option('-nhid', 15, 'Number of hidden units')
 cmd:option('-teta', 30, "Temperature eta")
 cmd:option('-tgamma', 1, "Temperature gamma")
 cmd:option('-neta', 20, "Neighbour eta")
@@ -14,7 +14,7 @@ cmd:option('-nchanges', 20, "Neighbour number of changes")
 cmd:option('-niter', 100000, "Number of iterations")
 cmd:option('-nsamples', 6000, "Number of samples")
 cmd:option('-wndisc', 100, "Number of different weights")
-cmd:option('-wrange', 10, "Range of weights")
+cmd:option('-wrange', 1, "Range of weights")
 cmd:option('-jobname', 'job', 'Job name')
 opt = cmd:parse(arg)
 
@@ -110,7 +110,7 @@ local function getNeighbour(p, i_step)
    end
    local p2 = p:clone()
    for i = 1, params.neighbour_n_changes do
-      local delta = math.round(torch.normal():mul(a)) / w_step
+      local delta = math.floor(torch.normal() * a + 0.5) / w_step
       local k = torch.random(p2:size(1))
       p2[k] = math.max(w_min, math.min(w_max, p2[k] + delta))
    end
@@ -124,9 +124,7 @@ local old_w = w:clone()
 local function energy(p, i_step, this_batch_size)
    old_w:copy(w)
    w:copy(p)
-   print("ok")
    local output = model:forward(dataset.data)
-   print("done")
    local err = criterion:forward(output, dataset.labels)
    w:copy(old_w)
    return err
