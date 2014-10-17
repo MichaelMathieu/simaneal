@@ -4,6 +4,8 @@ require 'paths'
 require 'image'
 require 'io'
 
+torch.setnumthreads(1)
+
 cmd = torch.CmdLine()
 cmd:option('-seed', 1, 'Manual seed')
 cmd:option('-nhid', 16, 'Number of hidden units')
@@ -196,7 +198,7 @@ end
 io.write("\n")
 io.flush()
 
-torch.save('/home/mfm352/phd/annealing/outputs/test_'..params.jobname..'.t7b',
+torch.save('outputs/'..params.jobname..'.t7b',
 	   {state=best_state,
 	    training_error=best_energy,
 	    testing_error=avg_err,
