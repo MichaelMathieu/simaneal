@@ -4,6 +4,8 @@ require 'paths'
 require 'image'
 require 'io'
 
+torch.setnumthreads(1)
+
 cmd = torch.CmdLine()
 cmd:option('-seed', 1, 'Manual seed')
 cmd:option('-nhid', 16, 'Number of hidden units')
